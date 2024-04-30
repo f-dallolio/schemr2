@@ -113,8 +113,28 @@ pmap <- function(.l, .f, ...) {
 keep <- function(.x, .f, ...) {
   .x[.rlang_purrr_probe(.x, .f, ...)]
 }
+keep2 <- function(.x, .p, ...) {
+  if(is.integer(.p)){
+    sel <- seq_along(.x) %in% .p
+  } else if(is.character(.p)){
+    sel <- names(.x) %in% .p
+  } else {
+    sel <- .rlang_purrr_probe(.x, .p, ...)
+  }
+  .x[is.na(sel) | sel]
+}
 discard <- function(.x, .p, ...) {
   sel <- .rlang_purrr_probe(.x, .p, ...)
+  .x[is.na(sel) | !sel]
+}
+discard2 <- function(.x, .p, ...) {
+  if(is.integer(.p)){
+    sel <- seq_along(.x) %in% .p
+  } else if(is.character(.p)){
+    sel <- names(.x) %in% .p
+  } else {
+    sel <- .rlang_purrr_probe(.x, .p, ...)
+  }
   .x[is.na(sel) | !sel]
 }
 map_if <- function(.x, .p, .f, ...) {
