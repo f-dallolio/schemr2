@@ -19,3 +19,5 @@ Imports:
     tibble,
     dplyr,
     tidyr
+URL: https://github.com/f-dallolio/schemr2
+BugReports: https://github.com/f-dallolio/schemr2/issues
