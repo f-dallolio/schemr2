@@ -1,3 +1,23 @@
+ns_env2 <- function(x = NULL..., .env = caller_env()){
+  ns0 <- enexpr(x)
+  x <- try(eval(ns0, envir = .env), silent = TRUE)
+  if(is_string(ns0) || is_function(x) || is_environment(x)){
+    ns_env(x)
+  } else {
+    ns_env(deparse(ns0))
+  }
+}
+
+caller_arg2 <- function (arg){
+  arg <- substitute(arg)
+  check_arg(arg)
+  expr <- do.call(substitute, list(arg), envir = caller_env())
+  if(is.character(expr)){
+    expr
+  } else {
+    deparse(expr)
+  }
+}
 #'
 #' @export
 sym_add_ns <- function(x, ns = NULL){
@@ -55,6 +75,10 @@ call_match2 <- function (call = NULL, fn = NULL, ...,
     fn <- lang2fun(call)
   }
 
+  if(typeof(fn) == "builtin"){
+    return(call_primitive(fn))
+  }
+
   out <- rlang::call_match(call = call, fn = fn,
                            defaults = defaults, dots_env = dots_env,
                            dots_expand = dots_expand)
@@ -83,13 +107,71 @@ new_function2 <- function(args, body, env = globalenv()){
 }
 #'
 #' @export
-new_function_import <- function(fn, ns = NULL, env = globalenv()){
-  call <- call_add_ns(!!enexpr(fn), !!enexpr(ns))
+new_fn_import <- function(fn, ns = NULL, env = globalenv()){
+  ns0 <- enexpr(ns)
+  fn0 <- enexpr(fn)
+
+  if(is.null(ns0)){
+    if(is_string(fn0)) fn <- get(fn0, mode = "function")
+    call <- call_add_ns(!!enexpr(fn0))
+  } else {
+    if(is_string(ns0)) {
+      env_get <- asNamespace(ns0)
+    } else {
+      env_get <- asNamespace(deparse(ns0))
+    }
+    if(is_string(fn0)) fn <- get(fn0, envir = env_get, mode = "function")
+    call <- call_add_ns(!!enexpr(fn0), !!enexpr(ns0))
+  }
   body <- call_match2(call, fn, add_ns = TRUE, fmls_syms = TRUE)
   new_fn <- new_function2(args = formals(fn), body = body, env = env)
-  out <- call("<-", sym(call_name(body)), new_fn)
-  out2 <- paste_flat(style_expr(out), c = "\n")
-  setNames(out2, call_name(body))
+  new_fn
+}
+
+
+new_fn_negate <- function(fn, ns = NULL, env = globalenv()){
+  args <- call_args(current_call())
+  new_fn <- do.call("new_fn_import", args)
+  body <- body(new_fn)
+  if(deparse(body[[1]]) == "{"){
+    body(new_fn) <- call("{", call("!", body[[2]]))
+  } else {
+    body(new_fn) <- call("!", body[[2]])
+  }
+  new_fn
+}
+
+
+fn_body_modify <- function(fn, expr){
+  stopifnot(is.function(fn))
+  body <- body(fn)
+  if(deparse(body[[1]]) == "{"){
+    body(fn) <- call("{", expr)
+  } else {
+    body(fn) <- expr
+  }
+  environment(fn) <- globalenv()
+  fn
+}
+
+
+call_primitive <- function(fn, ..., .arg = caller_arg(fn)){
+  stopifnot(is.primitive(fn))
+  out <- gsub("function", .arg,
+              gsub(" ", "",
+                   gsub(".Primitive.*", "", capture.output(is.null))))
+  str2lang(out)
+}
+
+fn_body2 <- function(fn = caller_fn(),..., .arg = caller_arg(fn)){
+  stopifnot(is.function(fn))
+  body <- try(body(fn))
+  if(is_symbolic(body)){
+    body
+  } else {
+    call <- call_primitive(fn = fn)
+
+  }
 }
 #'
 #' @export
